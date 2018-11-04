@@ -16,7 +16,6 @@
 # Variables
 Exe=$(basename "$0" .sh)
 WslOpenExe=${WslOpenExe:-"powershell.exe Start"}
-WslDisks=${WslDisks:-/mnt}
 EnableWslCheck=${EnableWslCheck:-true}
 DryRun=${DryRun:-false}
 DefaultsFile=${DefaultsFile:-~/.mailcap}
@@ -83,27 +82,46 @@ xdg\-open(1), Project Page \fIhttps://gitlab\.com/4U6U57/wsl\-open\fR
 # Path conversion functions
 WinPathToLinux() {
   Path=$*
+  # Search Windows drive for path
+  for drive in $(df --type=drvfs --output=source | tail -n +2)
+   do
+    case $Path in "$drive"*)
+      windrive=$drive
+      break
+    esac
+  done
+  # find the mointpoint of the Windows drive
+  montpoint=$(findmnt -nr -o wet -S "$windrive")
   # Sanitize, remove \r and \n
   Path=$(tr -d '\r\n' <<< "$Path")
   # C:\\folder\path -> C:\folder\path (only if there is \\)
   Path=${Path//\\\\/\\}
   # C:\folder\path -> C:/folder/path
   Path=${Path//\\/\/}
-  # C:/folder/path -> c/folder/path
-  # shellcheck disable=SC2018,SC2019
-  Path=$(tr 'A-Z' 'a-z' <<< "${Path:0:1}")${Path:2}
-  # c/folder/path -> /mnt/c/folder/path
-  Path=$WslDisks/$Path
+  # Replace Windows montpoint with Linux montpoint
+  # C:/folder/path -> /mnt/c/folder/path
+  Path=$montpoint${Path#$windrive}
   echo "$Path"
 }
 LinuxPathToWin() {
   Path=$*
-  # If path not under $Disks, can't convert
-  [[ $Path != $WslDisks/* ]] && Error "Error converting Linux path to Windows"
+  # If path not under monted drvfs disk, can't convert
+  df $FilePath --type=drvfs > /dev/null 2>&1  || Error "Error converting Linux path to Windows"
   # /mnt/c/folder/path -> c/folder/path
-  Path=${Path:$((${#WslDisks} + 1))}
-  # c/folder/path -> C://folder/path
-  Path=$(tr '[:lower:]' '[:upper:]' <<< "${Path:0:1}"):/${Path:1}
+  # Get Windows drive
+  windrive=$(df $Path --type=drvfs --output=source | tail -n 1)
+  # Get Linux montpint
+  montpoint=$(df $Path --type=drvfs --output=target | tail -n 1)
+  # Delete Linux montpoint
+  # /mnt/c/folder/path -> /folder/path
+  Path=${Path#$montpoint}
+  case $windrive in *:)
+    # /folder/path -> //folder/path
+    Path="/$Path"
+  esac
+  # Add Windows montpoint
+  # //folder/path -> C://folder/path
+  Path="$windrive$Path" 
   # C://folder/path -> C:\\folder\path
   Path=${Path//\//\\}
   echo "$Path"
@@ -191,8 +209,8 @@ if [[ ! -z $File ]]; then
     # File or directory
     FilePath="$(readlink -f "$File")"
 
-    # shellcheck disable=SC2053
-    if [[ $FilePath != $WslDisks/* ]]; then
+    # shellcheck disable=SC2053a
+    if ! $(df $FilePath --type=drvfs > /dev/null 2>&1) ; then
       # File or directory is not on a Windows accessible disk
       # If it is a directory, then we can't do anything, quit
       [[ ! -f $FilePath ]] && Error "Directory not in Windows partition: $FilePath"
