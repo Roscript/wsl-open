@@ -1,3 +1,9 @@
+# use npm install from github
+
+```bash
+npm install -g https://github.com/Roscript/wsl-open.git
+```
+
 # wsl-open (:open_file_folder: :arrow_right: :computer:)
 
 [![pipeline
