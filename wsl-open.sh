@@ -15,7 +15,7 @@
 
 # Variables
 Exe=$(basename "$0" .sh)
-WslOpenExe=${WslOpenExe:-"powershell.exe Start"}
+WslOpenExe=${WslOpenExe:-"/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe Start"}
 WslDisks=${WslDisks:-/mnt}
 EnableWslCheck=${EnableWslCheck:-true}
 DryRun=${DryRun:-false}
