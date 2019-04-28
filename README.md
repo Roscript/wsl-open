@@ -1,3 +1,8 @@
+# Added Feature
+Use Absolte Path of Powershell to fix error in MobaXterm
+
+#
+
 # use npm install from github
 
 ```bash
